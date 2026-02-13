@@ -1,0 +1,10 @@
+coremltools==9.0
+matplotlib==3.10.8
+onnx==1.20.1
+onnxruntime==1.24.1
+onnxruntime-gpu==1.24.1; platform_system == "Windows"
+pydantic==2.12.5
+PyYAML==6.0.3
+torch==2.10.0
+numpy==2.4.2
+executorch==1.1.0
