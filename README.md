@@ -262,9 +262,15 @@ run(
 - `run <yaml>`  
   Execute tests on selected backends, optionally compare to a baseline backend, and write a JSONL run file.
 
-### Notes on quoting
+### Notes on quoting and Windows
 
 `--backends`, `--test-ids`, and `--skips` use `;` to separate multiple values. In `zsh`/`bash`, `;` is a command separator and `*` is a glob, so **quote these arguments** when they contain `;` or `*`.
+
+On **Windows (cmd/conda prompt)**, quoting is usually not required.
+If you encounter Unicode-related errors, run:
+```bash
+set PYTHONUTF8=1
+```
 
 ### Running all tests vs selected tests
 

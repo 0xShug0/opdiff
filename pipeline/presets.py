@@ -99,7 +99,7 @@ if IS_DARWIN:
     
 # ---- base defaults ----
 BASE_TORCH_RUN = TorchRunOptions()
-BASE_TORCH_EXPORT = TorchExportOptions()
+BASE_TORCH_EXPORT = TorchExportOptions() if TorchExportOptions is not None else None
 
 BASE_ONNX = ONNXOptions(
     opset=20,
