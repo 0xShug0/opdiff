@@ -1,0 +1,7 @@
+{
+  "onnx_cpu_fp32": {
+    "onnx_overrides": {
+      "opset": 20
+    }
+  }
+}

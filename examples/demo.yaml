@@ -1,0 +1,269 @@
+dims:
+  B: 2
+  N: 4
+  M: 3
+
+presets:
+  x_bn:   {type: tensor, shape: [B, N], kind: float, init: normal} # default is dtype float32
+  # or x_bn:   {type: tensor, shape: [B, N], dtype: float32, init: normal}
+  y_bn:   {type: tensor, shape: [B, N], kind: float, init: uniform, low: -1, high: 1}
+  x_bnm:  {type: tensor, shape: [B, N, M], kind: float, init: normal}
+  idx_n:  {type: tensor, shape: [N], kind: int, init: randint, low: 0, high: 3}
+  x_feat4: {type: tensor, shape: [B, 4], dtype: float32, init: normal}
+  x_feat8: {type: tensor, shape: [B, 8], dtype: float32, init: normal}
+  toy_x: {type: const_tensor, dtype: float32, shape: [6], value: [-7.0, -3.0, -0.5, 0.25, 2.0, 11.0]}
+
+tests:
+  # Elementwise add of two preset tensors (uses {ref: ...})
+  - id: op_add_ref_ref
+    op: aten::add
+    in:
+      - {ref: x_bn}
+      - {ref: y_bn}
+
+  # Add with constant keyword argument (alpha)
+  - id: op_add_with_alpha_kw
+    op: aten::add
+    in:
+      - {ref: x_bn}
+      - {ref: y_bn}
+    kwargs:
+      alpha: {type: const, value: 1.25}
+
+  # CoreML/export note:
+  # - In this framework, any values typed as `scalar` are exported as rank-1 tensors (shape (1,)).
+  # - Some ops + CoreML lowerings don’t accept that form and may fail to compile (e.g., clamp + scalar kwarg).
+  # - `scalar_tensor` stays a true rank-0 tensor (shape ()), which CoreML treats as a proper tensor input.
+  # This test demonstrates a CoreML-friendly “scalar-like” kwarg by using a rank-0 tensor for `min`.
+  - id: op_clamp_min_scalar_tensor_kw_sampled
+    op: aten::clamp
+    in:
+      - {ref: x_bn}
+    kwargs:
+      min: {type: scalar_tensor, dtype: float32, init: uniform, low: -0.5, high: 0.5}
+      
+  # Multiply by a scalar *tensor* (rank-0 tensor), demonstrating scalar_tensor
+  - id: op_mul_scalar_tensor
+    op: aten::mul
+    in:
+      - {ref: x_bn}
+      - {type: scalar_tensor, dtype: float32, value: 3.0}
+
+  # Clamp with mixed constants: min as const, max as optional(None or value)
+  - id: op_clamp_optional_max
+    op: aten::clamp
+    in:
+      - {ref: x_bn}
+    kwargs:
+      min: {type: const, value: -0.25}
+      max:
+        type: optional
+        p_none: 0.5
+        elem: {type: const, value: 0.25}
+
+  # Reduction with dim provided as const + keepdim flag
+  - id: op_sum_dim_keepdim
+    op: aten::sum.dim_IntList
+    in:
+      - {ref: x_bnm}
+      - {type: int_list, elems: [1]}     # reduce over N
+      - {type: const, value: true}       # keepdim
+
+  # Permute using an int_list (demonstrates int_list node)
+  - id: op_permute_int_list
+    op: aten::permute
+    in:
+      - {ref: x_bnm}
+      - {type: int_list, elems: [0, 2, 1]}
+
+  # Gather with index tensor (demonstrates mixing float input + int index)
+  - id: op_gather_dim1
+    op: aten::gather
+    in:
+      - {ref: x_bn}
+      - {type: const, value: 1}          # dim
+      - {type: tensor, shape: [B, N], dtype: int64, init: randint, low: 0, high: 3}
+
+  # Concatenate a generated list[Tensor] (Tensor[]) using list node (positional list is supported)
+  - id: op_cat_tensor_list
+    op: aten::cat
+    in:
+      - type: list
+        len: 3
+        elem: {type: tensor, shape: [B, N], dtype: float32, init: normal}
+      - {type: const, value: 1}          # dim
+
+  # Where with a boolean condition tensor (demonstrates bool tensor sampling)
+  - id: op_where_bool_cond
+    op: aten::where
+    in:
+      - {type: tensor, shape: [B, N], dtype: bool, init: bernoulli, p: 0.5}
+      - {ref: x_bn}
+      - {ref: y_bn}
+
+  # Add a constant tensor (const_tensor) to an input (demonstrates const_tensor)
+  - id: op_add_const_tensor
+    op: aten::add
+    in:
+      - {ref: x_bn}
+      - type: const_tensor
+        shape: [B, N]
+        dtype: float32
+        value: [[1.0, 2.0, 3.0, 4.0],
+                [5.0, 6.0, 7.0, 8.0]]
+
+  # Demo of fft related ops that inputs are complex
+  - id: fft_irfft
+    op: aten::fft_irfft
+    in:
+      # t_bn_c64 (inline): complex64 input, shape [B, N]
+      - {type: tensor, dtype: complex64, shape: [2, 4], init: normal}
+      # n = None
+      - {type: const, value: null}
+      # dim (inline): sampled int in [-2, 1]
+      - {type: scalar, kind: int, low: -2, high: 1}
+      # norm = None
+      - {type: const, value: null}
+    cast_input0_to_complex: true
+
+  # A module test: Linear forward on preset input (demonstrates module constructor args)
+  - id: mod_linear_forward
+    op:
+      type: module
+      path: torch.nn.Linear
+      args: [4, 3]
+      kwargs: {bias: true}
+    in:
+      - {ref: x_bn}
+
+  # LayerNorm forward with impl + device fields
+  - id: mod_layernorm_impl_cpu
+    impl: eager
+    device: cpu
+    op:
+      type: module
+      path: torch.nn.LayerNorm
+      args: [[4]]
+      kwargs: {elementwise_affine: true}
+    in:
+      - {ref: x_bn}
+
+  # Sequential(Linear -> ReLU) forward using nested construct nodes
+  - id: mod_sequential_with_construct
+    op:
+      type: module
+      path: torch.nn.Sequential
+      args: [
+        {type: construct, path: torch.nn.Linear, args: [4, 4], kwargs: {}},
+        {type: construct, path: torch.nn.Sigmoid, args: [], kwargs: {}}
+      ]
+    in:
+      - {ref: x_bn}
+  
+
+  # Template_module produce cartesian product combos
+  - id: mod_linear_template
+    op:
+      type: template_module
+      path: torch.nn.Linear
+      vars:
+        in_features: [N]
+        out_features: [3, 5, 7]
+        bias: [true, false]
+      args: [{var: in_features}, {var: out_features}]
+      kwargs: {bias: {var: bias}}
+    in:
+      - {type: tensor, shape: [B, N], dtype: float32, init: normal}
+
+
+  # Cases restrict the cartesian product so only selected (out_features, bias) combos run
+  # Why `cases`:
+  # - We want to sweep Linear over two possible input feature sizes (4 and 8).
+  # - The Linear constructor arg `in_features` MUST match the input's last dimension.
+  # - If we used only `vars` (cartesian product), we'd generate invalid combos like:
+  #     in_features=8 with input=x_feat4 (shape [B,4])  -> runtime/export failure
+  # - So we use `cases` to enforce the constraint:
+  #     (in_features=4 -> use x_feat4) and (in_features=8 -> use x_feat8).
+  #
+  # With vars alone: 2 (in_features) * 2 (input_variant) * 3 (out_features) * 2 (bias) = 24 tests,
+  # but half are invalid due to in_features/input mismatch.
+  # With cases below: 2 valid pairings * 3 (out_features) * 2 (bias) = 12 valid tests.
+  - id: mod_linear_cases_match_input_features
+    op:
+      type: template_module
+      path: torch.nn.Linear
+      vars:
+        in_features: [4, 8]
+        input_preset: [x_feat4, x_feat8]
+        out_features: [8, 16, 32]        
+        bias: [true, false]
+      cases:
+        - {in_features: 4, input_preset: x_feat4}
+        - {in_features: 8, input_preset: x_feat8}
+      args: [{var: in_features}, {var: out_features}]
+      kwargs: {bias: {var: bias}}
+    in:
+      - {ref: {var: input_preset}}
+  
+  # Load a toy model from a file
+  - id: toy_ln_load_from_path
+    op:
+      type: module
+      path: file:examples/toy_wrappers.py::ToyLogitsLN
+      args:
+        - type: construct
+          path: file:examples/toy_model.py::ToyConfig
+          args: []
+          kwargs: {in_dim: 4, hidden_dim: 32, out_dim: 7, seed: 0}
+      kwargs: {}
+    in: [{ref: x_bn}]
+
+  # Load a toy model from a file (templated: vary hidden_dim)
+  - id: toy_ln_load_from_path_templated
+    op:
+      type: template_module
+      path: file:examples/toy_wrappers.py::ToyLogitsLN
+      vars:
+        hidden_dim: [16, 32]   # parameterized variable (expands into 2 test cases)
+      args:
+        - type: construct
+          path: file:examples/toy_model.py::ToyConfig
+          args: []
+          kwargs:
+            in_dim: 4
+            hidden_dim: {var: hidden_dim}  # use the template variable
+            out_dim: 7
+            seed: 0
+      kwargs: {}
+    in: [{ref: x_bn}]
+
+
+  - id: unary_template
+    op:
+      type: template_module
+      path: file:examples/toy_model.py::UnaryOp
+      vars:
+        mode: ["abs", "neg", "square"]   # non-empty list required
+      kwargs:
+        mode: {var: mode}         # var shorthand becomes VarNode
+    in: [{ref: toy_x}]
+      
+  - id: toy_ln_vs_rms_pair
+    op:
+      type: template_compare_pair
+      vars: {}
+      common:
+        args:
+          - type: construct
+            path: file:examples/toy_model.py::ToyConfig
+            args: []
+            kwargs: {in_dim: 4, hidden_dim: 32, out_dim: 7, seed: 0}
+      a:
+        impl: layernorm
+        type: module
+        path: file:examples/toy_wrappers.py::ToyLogitsLN
+      b:
+        impl: rmsnorm
+        type: module
+        path: file:examples/toy_wrappers.py::ToyLogitsRMS
+    in: [{ref: x_bn}]
