@@ -1,4 +1,4 @@
-# opdiff – Cross‑Backend Operator & Module Parity Framework
+# opdiff – Cross‑Backend PyTorch Operator & Module Testing Framework
 
 ## What is opdiff?
 
