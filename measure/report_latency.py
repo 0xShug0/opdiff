@@ -401,7 +401,11 @@ def extract_items(objs):
                     if old.get("times") is None and new_rec.get("times") is not None:
                         old["times"] = new_rec["times"]
 
-        per_item[item_id] = row
+        # per_item[item_id] = row
+        if item_id in per_item:
+            per_item[item_id].update(row)
+        else:
+            per_item[item_id] = row
 
     item_ids = sorted(per_item.keys())
     backend_list = sorted(all_backends)

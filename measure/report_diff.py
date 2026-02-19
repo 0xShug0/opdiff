@@ -213,7 +213,10 @@ def extract_items(objs):
                 "diff_err_msg": err_msg,
             }
 
-        per_item[item_id] = row
+        if item_id in per_item:
+            per_item[item_id].update(row)
+        else:
+            per_item[item_id] = row
 
     item_ids = sorted(per_item.keys())
     backend_list = sorted(all_backends)

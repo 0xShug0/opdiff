@@ -195,33 +195,6 @@ def _err_to_text(err):
         return str(err)
 
 
-def normalize_err(err_text):
-    """
-    Map raw err string into one of the user-defined *literal* buckets.
-    Returns the bucket string exactly as listed (keeps <n> and [op] literally).
-    Unknown messages return "OTHER: <first line truncated>".
-    """
-    s = (err_text or "").strip()
-    if not s:
-        return ""
-
-    # first line is enough for bucketing
-    if "\n" in s:
-        s = s.split("\n", 1)[0].strip()
-
-    # remove raw ESC char (common from colored logs)
-    s = s.replace("\x1b", "")
-
-    for pred, bucket in _BUCKET_RULES:
-        if pred(s):
-            return bucket
-
-    t = s.strip()
-    if len(t) > 140:
-        t = t[:140] + "…"
-    return "OTHER: " + t
-
-
 def collect_exception_groups(item_ids, backend_cols, per_item, raw_items_by_id):
     """
     Returns:
@@ -240,13 +213,19 @@ def collect_exception_groups(item_ids, backend_cols, per_item, raw_items_by_id):
         obj = raw_items_by_id.get(item_id)
         if not obj:
             continue
-
-        # --- NEW: scan baseline record for err signatures ---
+        
         base = obj.get("baseline")
         if isinstance(base, dict):
             backend = str(base.get("backend", "") or "")
             if backend in per_backend:
-                res = base.get("res") or []
+                err_txt = _err_to_text(base.get("err"))
+                if err_txt:
+                    sig = normalize_err(err_txt)
+                    if sig:
+                        per_backend[backend][sig] += 1
+                        global_counter[sig] += 1
+                        
+                res = base.get("res")
                 if isinstance(res, list):
                     for r in res:
                         if not isinstance(r, dict):
@@ -309,7 +288,11 @@ def build_matrix(objs):
         if not item_id:
             continue
 
-        raw_items_by_id[item_id] = obj
+        if item_id in raw_items_by_id:
+            # merge backend lists only
+            raw_items_by_id[item_id]["backends"].extend(obj.get("backends", []))
+        else:
+            raw_items_by_id[item_id] = obj
 
         # best-effort op name from cases[0].op
         op_name = ""
@@ -329,14 +312,17 @@ def build_matrix(objs):
         if isinstance(base, dict):
             base_name = str(base.get("backend", "") or "")
             if base_name:
-                res = base.get("res") or []
-                if not isinstance(res, list):
-                    res = []
-                statuses = []
-                for r in res:
-                    if isinstance(r, dict):
-                        statuses.append(r.get("status"))
-                row[base_name] = combine_status(statuses)
+                if "status" in base:
+                    row[base_name] = str(base.get("status") or "")
+                else:
+                    res = base.get("res") or []
+                    if not isinstance(res, list):
+                        res = []
+                    statuses = []
+                    for r in res:
+                        if isinstance(r, dict):
+                            statuses.append(r.get("status"))
+                    row[base_name] = combine_status(statuses)
                 all_backend_names.append(base_name)
 
         # existing: normal backends
@@ -363,7 +349,10 @@ def build_matrix(objs):
             row[backend_name] = combine_status(statuses)
             all_backend_names.append(backend_name)
 
-        per_item[item_id] = row
+        if item_id not in per_item:
+            per_item[item_id] = row
+        else:
+            per_item[item_id].update(row)
 
     backend_cols = sorted(set(all_backend_names))
     item_ids = sorted(per_item.keys())
