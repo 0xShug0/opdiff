@@ -27,6 +27,16 @@ from core_types import INT_DTYPES, ConstSpec, ConstTensorSpec, ListSpec, Optiona
 from testgen.test_plan import build_specs, split_export_args
 
 
+def resolve_test_device(device: str) -> str:
+    if device == "gpu":
+        if torch.cuda.is_available():
+            return "cuda"
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            return "mps"
+        return "cpu"
+    return device
+
+
 class InputGen:
 
     def __init__(self, seed: int = 0):
@@ -511,7 +521,7 @@ class InputGen:
                 "arg_is_tensor": export_arg_is_tensor,
                 "const_kwargs": export_const_kwargs,
                 "kw_tensor_keys": export_kw_tensor_keys,
-                "device": test["device"],
+                "device": resolve_test_device(test["device"]),
                 "cast_input0_to_complex": test.get("cast_input0_to_complex", False),
             }
 
