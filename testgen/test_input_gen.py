@@ -83,11 +83,15 @@ class InputGen:
             value = self._ensure_dtype(value, spec.dtype)
             return self._export_rank0_as_rank1(value)
 
+        # if isinstance(spec, ScalarSpec):
+        #     if torch.is_tensor(value):
+        #         return self._export_rank0_as_rank1(value)
+        #     dt = spec.dtype or self._fallback_dtype_from_kind(spec.kind)
+        #     print ("oringal spec", self._export_scalar_as_rank1_tensor(value, device=device, dtype=dt))
+        #     return self._export_scalar_as_rank1_tensor(value, device=device, dtype=dt)
+        
         if isinstance(spec, ScalarSpec):
-            if torch.is_tensor(value):
-                return self._export_rank0_as_rank1(value)
-            dt = spec.dtype or self._fallback_dtype_from_kind(spec.kind)
-            return self._export_scalar_as_rank1_tensor(value, device=device, dtype=dt)
+            return value
 
         if isinstance(spec, ScalarTensorSpec):
             if torch.is_tensor(value):
