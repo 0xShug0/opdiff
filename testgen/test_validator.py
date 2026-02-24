@@ -533,6 +533,7 @@ class TestCase(BaseModel):
     id: Optional[str] = None
     impl: Optional[str] = None
     op: Union[str, ModuleNode, TemplateModuleNode, TemplateComparePairNode]
+    category: Optional[str] = None
     in_: List[Node] = Field(alias="in")
     kwargs: Dict[str, Node] = Field(default_factory=dict)
     out: Optional[Node] = None
