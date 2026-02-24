@@ -13,11 +13,14 @@ if IS_DARWIN:
     from backends.coreml_backend import CoreMLBackend, CoreMLOptions, TorchExportOptions
     from executorch.runtime import Verification
     from backends.executorch_backend import ExecuTorchBackend, ExecuTorchOptions
+    from backends.mlx_backend import MlxBackend, MlxRunOptions
 else:
     ct = None
-    CoreMLBackend = CoreMLOptions = TorchExportOptions = None  # type: ignore
+    CoreMLBackend = CoreMLOptions = TorchExportOptions = None 
     Verification = None
-    ExecuTorchBackend = ExecuTorchOptions = None  # type: ignore
+    ExecuTorchBackend = ExecuTorchOptions = None
+    MlxBackend = None
+    MlxRunOptions = None
     
 
 @dataclass(frozen=True)
@@ -28,6 +31,7 @@ class PresetDelta:
     torch_export: Dict[str, Any] | None = None
     onnx: Dict[str, Any] | None = None
     executorch: Dict[str, Any] | None = None
+    mlx: Dict[str, Any] | None = None
 
 
 BACKEND_PRESETS = {
@@ -95,11 +99,15 @@ if IS_DARWIN:
         "executorch_mps_fp16":    PresetDelta(kind="executorch", executorch={"target": "mps"},    torch_export={"export_fp16": True}),
         "executorch_coreml_fp32": PresetDelta(kind="executorch", executorch={"target": "coreml", "coreml_compute_precision": "fp32"}, torch_export={"export_fp16": False}),
         "executorch_coreml_fp16": PresetDelta(kind="executorch", executorch={"target": "coreml", "coreml_compute_precision": "fp16"}, torch_export={"export_fp16": False}),
+        
+        # MLX
+        "mlx_gpu_fp32": PresetDelta(kind="mlx", mlx={"force_eval": True}),
     })
     
 # ---- base defaults ----
 BASE_TORCH_RUN = TorchRunOptions()
 BASE_TORCH_EXPORT = TorchExportOptions() if TorchExportOptions is not None else None
+BASE_MLX = MlxRunOptions() if MlxRunOptions is not None else None
 
 BASE_ONNX = ONNXOptions(
     opset=20,
@@ -139,6 +147,8 @@ def make_backend(
     onnx_overrides: dict | None = None,
     # ExecuTorch overrides
     executorch_overrides: dict | None = None,
+    # MLX overrides
+    mlx_overrides: dict | None = None,
 ):
     p = BACKEND_PRESETS[preset_name]
 
@@ -197,5 +207,13 @@ def make_backend(
 
         return ExecuTorchBackend(export_opts=export_opts, et_opts=et_opts)
 
+    if p.kind == "mlx":
+        mlx_opts = BASE_MLX
+        if p.mlx:
+            mlx_opts = replace(mlx_opts, **p.mlx)
+        if mlx_overrides:
+            mlx_opts = replace(mlx_opts, **mlx_overrides)
+
+        return MlxBackend(run_opts=mlx_opts)
 
     raise ValueError(f"Unknown preset kind: {p.kind}")

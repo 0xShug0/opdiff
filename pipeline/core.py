@@ -108,7 +108,7 @@ def _export_model(
     export_bundle: Dict[str, Any],
 ) -> Any:
     """Create a runnable backend model for an op and return the inference inputs/kwargs."""
-    if backend.backend_name() == "torch":
+    if backend.backend_name() in ("torch", "mlx"):
         with silence_output(True):
             model = backend.export_op(op)  # no op
         return model
@@ -175,7 +175,7 @@ def run_backend(
             bi = export_bundle[j]
 
             # Match existing backend-specific calling convention:
-            if backend.backend_name() == "torch":
+            if backend.backend_name() in ("torch", "mlx"):
                 infer_inputs = ei["args"]
                 infer_kwargs = ei["kwargs"]
             else:
@@ -387,7 +387,7 @@ def run_baseline_if_needed(
     baseline_out = b_out if b_status == "OK" else None
     baseline_extra = b_extra if b_status == "OK" else None
     out_item["baseline"] = baseline_info
-    logger.info("FINISHED id=%s backend=%s status=OK", out_item["id"], base_name)
+    logger.info("FINISHED id=%s backend=%s", out_item["id"], base_name)
     return baseline_info, baseline_out, baseline_extra
 
 def run_item_on_backend(
@@ -408,7 +408,7 @@ def run_item_on_backend(
 ) -> Dict[str, Any]:
     """Run one item on one backend and produce the exact backend record dict."""
     if (out_item_id, preset_name) in skipped_set or (out_item_id, "*") in skipped_set:
-        logger.info("FINISHED id=%s backend=%s status=SKIPPED", out_item_id, preset_name)
+        logger.info("SKIPPED id=%s backend=%s", out_item_id, preset_name)
         return _backend_record_skipped(preset_name)
 
     backend = make_backend(preset_name, **overrides_by_backend.get(preset_name, {}))
@@ -566,5 +566,5 @@ def run_one_item(
             mode=mode,
         )
         out_item["backends"].append(b)
-        logger.info("FINISHED id=%s backend=%s status=OK", out_item["id"], preset_name)
+        logger.info("FINISHED id=%s backend=%s", out_item["id"], preset_name)
     return out_item
