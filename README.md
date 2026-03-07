@@ -1,5 +1,14 @@
 # opdiff – Cross‑Backend PyTorch Operator & Module Testing Framework
 
+## 🐛 Bugs Discovered by opdiff
+https://github.com/pytorch/executorch/issues/17537
+
+https://github.com/pytorch/executorch/issues/17559
+
+**opdiff** helps uncover bugs and inconsistencies across model runtimes. The results at [opdiff.com](https://opdiff.com) already reveal many potential issues.
+
+Turning these findings into minimal reproduction scripts and formal bug reports requires significant effort. Community contributions are greatly appreciated! If you confirm an issue, please help submit a bug report to the relevant project and attribute the finding to opdiff.
+
 ## What is opdiff?
 
 **opdiff** is a YAML-driven testing framework for validating correctness, support, 
