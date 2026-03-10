@@ -28,7 +28,8 @@ def silence_output(enabled: bool = True):
     
     # Windows: avoid fd-level dup2 (can break in IDEs/Jupyter/capture setups)
     if os.name == "nt":
-        with open(os.devnull, "w") as f, redirect_stdout(f), redirect_stderr(f):
+        with open(os.devnull, "w", encoding="utf-8", errors="ignore") as f, \
+             redirect_stdout(f), redirect_stderr(f):
             yield
         return
     
