@@ -1,7 +1,7 @@
 # opdiff – Cross‑Backend PyTorch Operator & Module Testing Framework
 
 ## 🐛 Bugs Discovered by opdiff
-https://github.com/apple/coremltools/issues/2666
+https://github.com/apple/coremltools/issues/2666, https://github.com/apple/coremltools/issues/2667
 
 https://github.com/pytorch/executorch/issues/17537
 
