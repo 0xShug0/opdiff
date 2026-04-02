@@ -325,7 +325,7 @@ def run(
             - "a": append a new run header and subsequent item records
         timeout_s: If provided, enforce a hard timeout (seconds) per
             (item, backend) using subprocess isolation. If None, run in-process.
-        clean_sys_tmp: If True, clean system temp and cache after the run completes.
+        do_clean: If True, clean system temp and cache after the run completes.
 
     Notes:
         - Latency is reported as the median of backend-reported per-infer timings.

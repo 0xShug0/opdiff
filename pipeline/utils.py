@@ -14,10 +14,12 @@ logger = logging.getLogger("opdiff.run")
 for name in [
     "onnx_ir",
     "onnxscript",
+    "torch_tensorrt",
+    "coremltools",
+    "torch.onnx._internal.exporter._schemas",
 ]:
     logging.getLogger(name).setLevel(logging.ERROR)
 
-logging.getLogger("coremltools").setLevel(logging.ERROR)
 
 @contextlib.contextmanager
 def silence_output(enabled: bool = True):

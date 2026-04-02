@@ -8,6 +8,7 @@ from testgen.test_plan import extract_test_specs
 from testgen.test_input_gen import InputGen
 from pipeline.utils import logger, assert_out_not_all_zero, silence_output
 from measure.metrics import diff_metrics
+import gc
 
 def _match_id(pattern: str, actual_id: str) -> bool:
     """Check whether a test id matches a pattern with optional trailing-wildcard prefix support."""
@@ -65,6 +66,8 @@ def resolve_tests(yaml_path: str, *, test_ids: Optional[List[str]] = None) -> Tu
 
 def _use_fp16_io(preset_name: str) -> bool:
     """Return True if the given backend preset should use fp16-prepared inputs/exports."""
+    if preset_name == "executorch_coreml_fp16":
+        return False
     return preset_name.endswith("_fp16") and preset_name.split("_", 1)[0] in {
         "torch", "onnx", "executorch"
     }
@@ -510,7 +513,8 @@ def run_item_on_backend(
                 b["diff_all"] = None
         else:
             b["diff_all"] = None
-    # clean_sys_tmp()
+    clean_sys_tmp()
+    gc.collect()
     return b
 
 def run_one_item(
